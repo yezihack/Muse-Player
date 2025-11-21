@@ -16,7 +16,10 @@
     "build-icons": "electron-icon-maker --input=./source-icon.png --output=./"
   },
   "keywords": ["music", "player", "electron", "sqlite"],
-  "author": "",
+  "author": {
+    "name": "YeziHack",
+    "email": "freeit@126.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
