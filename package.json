@@ -9,11 +9,16 @@
     "dev": "electron . --dev",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
   },
   "keywords": ["music", "player", "electron", "sqlite"],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com:yezihack/Muse-Player.git"
+  },
   "devDependencies": {
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1"
@@ -31,10 +36,12 @@
     "files": [
       "**/*",
       "!dist",
-      "!node_modules",
       "!*.md",
       "!BUILD.md",
       "!.gitignore"
+    ],
+    "asarUnpack": [
+      "node_modules/sql.js/**/*"
     ],
     "win": {
       "target": [
@@ -45,8 +52,14 @@
         {
           "target": "portable",
           "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
         }
-      ]
+      ],
+      "icon": "icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

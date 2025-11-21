@@ -3,4 +3,6 @@ dist/
 *.log
 .DS_Store
 *.db
+.npmrc
+package-lock.json
 .qoder/

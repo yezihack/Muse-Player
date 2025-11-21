@@ -77,15 +77,34 @@ npm start
 
 ## 📦 打包分发
 
-如需打包为可执行文件，可以使用 electron-builder：
+### 本地打包
 
 ```bash
-# 安装 electron-builder
-npm install electron-builder --save-dev
-
-# 打包
-npx electron-builder
+npm run dist:win
 ```
+
+### GitHub Actions 自动发布
+
+1. **更新版本号**：修改 `package.json` 中的 `version`
+2. **提交更改**：
+   ```bash
+   git add .
+   git commit -m "Release v1.0.1"
+   ```
+3. **创建并推送标签**：
+   ```bash
+   git tag v1.0.1
+   git push origin v1.0.1
+   ```
+4. GitHub Actions 会自动：
+   - 构建 Windows 安装包（NSIS）
+   - 构建绿色版（Portable）
+   - 构建 ZIP 压缩包
+   - 发布到 GitHub Releases
+
+### 手动触发构建
+
+在 GitHub 仓库的 **Actions** 标签页，选择 "Build and Release" 工作流，点击 "Run workflow"。
 
 ## 🗂️ 项目结构
 
