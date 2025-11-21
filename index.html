@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muse | Desktop Edition</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* --- 核心变量 --- */
+        :root {
+            --primary: #8e2de2; --secondary: #4a00e0; --accent: #00ff88;
+            --danger: #ff4b1f; --glass: rgba(255, 255, 255, 0.1);
+            --text: #ffffff; --bg: #0f0c29; --active-heart: #ff4b1f;
+            --ab-color: #ffd700;
+        }
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+            background: linear-gradient(135deg, var(--bg), #302b63, #24243e);
+            height: 100vh; display: flex; justify-content: center; align-items: center;
+            color: var(--text); overflow: hidden;
+        }
+        .glow {
+            position: absolute; width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(142, 45, 226, 0.2) 0%, rgba(0,0,0,0) 70%);
+            top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+        }
+
+        /* 布局 */
+        .app-layout {
+            display: flex; gap: 20px; width: 95%; max-width: 1200px; height: 90vh;
+        }
+        .glass-panel {
+            background: var(--glass); backdrop-filter: blur(25px);
+            border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4); display: flex; flex-direction: column;
+        }
+        .folder-sidebar { flex: 0.6; padding: 20px; overflow: hidden; }
+        .player-main { flex: 1.6; padding: 30px; position: relative; justify-content: space-between; }
+        .playlist-sidebar { flex: 1; padding: 20px; overflow: hidden; }
+
+        /* --- 顶部栏 & 模式控制 --- */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .visualizer-btn {
+            background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px;
+            font-size: 0.8rem; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 5px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .visualizer-btn:hover { background: rgba(255,255,255,0.2); }
+        .visualizer-text { font-size: 0.75rem; color: #aaa; }
+        
+        .mode-btn {
+            background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px;
+            font-size: 0.8rem; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 5px;
+        }
+        .mode-btn:hover { background: rgba(255,255,255,0.2); }
+        .mode-text { font-size: 0.75rem; color: #aaa; }
+
+        /* --- 歌曲信息 & 收藏 --- */
+        .track-info-container { position: relative; text-align: center; margin-top: 10px; }
+        .track-info h2 { margin: 0; font-weight: 600; font-size: 1.5rem; }
+        .track-info p { margin: 5px 0 0 0; font-size: 0.85rem; color: #ccc; }
+        
+        /* --- 收藏按钮 --- */
+        .fav-btn {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            font-size: 1.2rem; color: rgba(255,255,255,0.3); cursor: pointer; transition: 0.3s;
+            -webkit-text-stroke: 1px rgba(255,255,255,0.5);
+        }
+        .fav-btn:hover { transform: translateY(-50%) scale(1.2); }
+        .fav-btn.active { 
+            color: var(--active-heart); 
+            text-shadow: 0 0 10px var(--active-heart); 
+            -webkit-text-stroke: 0;
+        }
+
+        canvas { width: 100%; height: 120px; margin: 15px 0; border-radius: 12px; background: rgba(0,0,0,0.2); }
+
+        /* --- 进度条 & 控制 --- */
+        .progress-area { margin-bottom: 15px; }
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 5px;
+            background: rgba(255,255,255,0.1); border-radius: 5px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+        }
+        .time-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 5px; }
+
+        .controls { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .controls-main { display: flex; justify-content: center; align-items: center; gap: 15px; }
+        .controls-row { display: flex; gap: 8px; align-items: center; }
+        .btn-main { font-size: 1.2rem; color: #ddd; cursor: pointer; background: none; border: none; padding: 5px; }
+        .btn-main:hover { color: var(--accent); }
+        .btn-small { font-size: 0.9rem; }
+        .btn-ab { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.1); }
+        .btn-ab.active { background: var(--ab-color); color: #000; font-weight: bold; }
+        .btn-play {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            font-size: 1.4rem; color: white; border: none; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(74, 0, 224, 0.4);
+        }
+        .btn-play:hover { transform: scale(1.05); }
+        
+        /* 音量控制 */
+        .volume-control {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(0,0,0,0.3);
+            padding: 8px 12px; border-radius: 20px;
+        }
+        .volume-slider { width: 100px; }
+        .volume-icon { font-size: 0.9rem; color: var(--accent); cursor: pointer; }
+        
+        /* 倒计时面板 */
+        .timer-panel {
+            position: absolute; bottom: 80px; left: 30px;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(15px);
+            padding: 10px 15px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; gap: 10px;
+            cursor: move;
+            user-select: none;
+            z-index: 100;
+        }
+        .timer-panel:active {
+            cursor: grabbing;
+        }
+        .timer-icon { font-size: 1rem; color: var(--accent); cursor: pointer; }
+        .timer-icon:hover { transform: scale(1.1); }
+        .timer-options { display: none; gap: 8px; }
+        .timer-options.show { display: flex; }
+        .timer-btn {
+            padding: 5px 12px; background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 15px;
+            color: #ddd; font-size: 0.75rem; cursor: pointer; transition: 0.2s;
+            white-space: nowrap;
+        }
+        .timer-btn:hover { background: rgba(255,255,255,0.2); }
+        .timer-btn.active { background: var(--accent); color: #000; font-weight: bold; }
+        .timer-display { font-size: 0.9rem; color: var(--accent); min-width: 50px; text-align: center; }
+        .timer-cancel { 
+            padding: 3px 10px; background: var(--danger); border: none; 
+            border-radius: 12px; color: white; cursor: pointer; font-size: 0.75rem;
+        }
+        
+        /* AB循环指示器 */
+        .ab-indicator {
+            position: absolute; top: 200px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 215, 0, 0.15); backdrop-filter: blur(10px);
+            padding: 8px 15px; border-radius: 20px; border: 1px solid var(--ab-color);
+            font-size: 0.8rem; color: var(--ab-color); opacity: 0; transition: 0.3s;
+        }
+        .ab-indicator.show { opacity: 1; }
+
+        /* --- 播放列表 --- */
+        .playlist-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;
+        }
+        .playlist-content { flex: 1; overflow-y: auto; padding-right: 5px; }
+        .playlist-content::-webkit-scrollbar { width: 5px; }
+        .playlist-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        .track-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; border-radius: 8px; margin-bottom: 5px; cursor: pointer;
+            background: rgba(255,255,255,0.02); transition: 0.2s;
+        }
+        .track-item:hover { background: rgba(255,255,255,0.08); }
+        .track-item.active { background: rgba(142, 45, 226, 0.15); border-left: 3px solid var(--accent); }
+        
+        .track-meta { display: flex; flex-direction: column; max-width: 70%; }
+        .track-name { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .track-stats { font-size: 0.7rem; color: #777; margin-top: 3px; display: flex; gap: 8px; }
+        .stat-play { color: var(--accent); }
+        .stat-fav { color: #888; }
+        .track-item.fav .stat-fav { color: var(--danger); }
+
+        .action-btn { color: #555; background: none; border: none; cursor: pointer; }
+        .action-btn:hover { color: var(--danger); }
+
+        .upload-btn { color: var(--accent); background: none; border: 1px solid var(--accent); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+        .upload-btn:hover { background: rgba(0, 255, 136, 0.1); }
+
+        /* 尝鲜模式提示 */
+        .preview-toast {
+            position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 75, 31, 0.8); color: white; padding: 5px 15px;
+            border-radius: 20px; font-size: 0.8rem; pointer-events: none; opacity: 0; transition: 0.3s;
+        }
+        .preview-toast.show { opacity: 1; top: 80px; }
+        
+        /* 文件夹管理 */
+        .folder-section {
+            height: 100%; display: flex; flex-direction: column;
+        }
+        .folder-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;
+        }
+        .folder-list { flex: 1; overflow-y: auto; padding-right: 5px; margin-top: 8px; }
+        .folder-list::-webkit-scrollbar { width: 5px; }
+        .folder-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        .folder-item {
+            padding: 10px; margin: 5px 0; border-radius: 8px;
+            background: rgba(255,255,255,0.03); cursor: pointer;
+            font-size: 0.85rem; transition: 0.2s; display: flex;
+            align-items: center; gap: 8px; position: relative;
+        }
+        .folder-item:hover { background: rgba(255,255,255,0.08); }
+        .folder-item:hover .folder-delete { opacity: 1; }
+        .folder-item.active { background: rgba(142, 45, 226, 0.25); border-left: 3px solid var(--accent); }
+        .folder-icon { font-size: 1rem; }
+        .folder-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .folder-count { font-size: 0.7rem; color: #888; }
+        .folder-delete {
+            opacity: 0; padding: 2px 6px; background: rgba(255,71,87,0.2);
+            border: 1px solid var(--danger); border-radius: 4px;
+            color: var(--danger); font-size: 0.7rem; cursor: pointer;
+            transition: 0.2s;
+        }
+        .folder-delete:hover { background: var(--danger); color: white; }
+        .add-folder-btn {
+            width: 100%; padding: 8px; background: rgba(0,255,136,0.1);
+            border: 1px dashed var(--accent); border-radius: 6px;
+            color: var(--accent); font-size: 0.8rem; cursor: pointer; margin-bottom: 10px;
+        }
+        .add-folder-btn:hover { background: rgba(0,255,136,0.2); }
+        
+        /* 键盘快捷键提示 */
+        .shortcuts-hint {
+            position: fixed; bottom: 10px; left: 10px;
+            background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 8px;
+            font-size: 0.7rem; color: #888; cursor: help;
+        }
+        .shortcuts-hint:hover { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="glow"></div>
+
+    <div class="app-layout">
+        
+        <!-- 左侧：文件夹列表 -->
+        <div class="glass-panel folder-sidebar">
+            <div class="folder-section">
+                <div class="folder-header">
+                    <span style="font-size:0.9rem; font-weight:600;">📁 Folders</span>
+                </div>
+                <button class="add-folder-btn" id="addFolderBtn">+ Add Folder</button>
+                <div class="folder-list" id="folderList">
+                    <div style="text-align:center; color:#666; margin-top:30px; font-size:0.8rem;">No folders yet</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 中间：播放器主控制区 -->
+        <div class="glass-panel player-main">
+            <div class="top-bar">
+                <button id="visualizerBtn" class="visualizer-btn">
+                    <span class="visualizer-text" id="visualizerText">📊 Spectrum</span>
+                </button>
+                <button id="modeBtn" class="mode-btn">
+                    <i class="fas fa-list" id="modeIcon"></i>
+                    <span class="mode-text" id="modeText">List Loop</span>
+                </button>
+            </div>
+
+            <div class="preview-toast" id="previewToast">✨ 尝鲜模式：播放高潮片段</div>
+            <div class="ab-indicator" id="abIndicator">🔁 AB Loop: <span id="abRange">--</span></div>
+
+            <div class="track-info-container">
+                <div class="track-info">
+                    <h2 id="trackTitle">Muse Desktop</h2>
+                    <p id="trackArtist">Select music to start</p>
+                </div>
+                <button class="fav-btn" id="favBtn"><i class="far fa-heart"></i></button>
+            </div>
+
+            <canvas id="visualizer"></canvas>
+
+            <div class="progress-area">
+                <input type="range" id="progressBar" value="0" min="0" step="0.1">
+                <div class="time-labels">
+                    <span id="currentTime">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <!-- 音量控制 -->
+                <div class="volume-control">
+                    <i class="fas fa-volume-up volume-icon" id="volumeIcon"></i>
+                    <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="100">
+                    <span style="font-size:0.75rem; color:#888; min-width:35px;" id="volumePercent">100%</span>
+                </div>
+                
+                <!-- 主控制区 -->
+                <div class="controls-main">
+                    <button class="btn-main" id="rewindBtn" title="-15s (←)"><i class="fas fa-undo-alt"></i></button>
+                    <button class="btn-main" id="prevBtn" title="Prev (P)"><i class="fas fa-step-backward"></i></button>
+                    <button class="btn-main btn-small btn-ab" id="setABtn" title="Set A (A)">A</button>
+                    <button class="btn-play" id="playBtn" title="Play/Pause (Space)"><i class="fas fa-play"></i></button>
+                    <button class="btn-main btn-small btn-ab" id="setBBtn" title="Set B (B)">B</button>
+                    <button class="btn-main" id="nextBtn" title="Next (N)"><i class="fas fa-step-forward"></i></button>
+                    <button class="btn-main" id="forwardBtn" title="+15s (→)"><i class="fas fa-redo-alt"></i></button>
+                </div>
+            </div>
+            
+            <!-- 倒计时面板 -->
+            <div class="timer-panel" id="timerPanel">
+                <i class="fas fa-clock timer-icon" id="timerIcon" title="Timer (T)"></i>
+                <div class="timer-options" id="timerOptions">
+                    <button class="timer-btn" onclick="setTimer(10)">10m</button>
+                    <button class="timer-btn" onclick="setTimer(20)">20m</button>
+                    <button class="timer-btn" onclick="setTimer(30)">30m</button>
+                    <button class="timer-btn" onclick="setTimer(45)">45m</button>
+                    <button class="timer-btn" onclick="setTimer(60)">1h</button>
+                    <button class="timer-btn" onclick="showCustomTimer()" style="border: 1px dashed var(--accent); color: var(--accent);">⚙️</button>
+                </div>
+                <div class="timer-display" id="timerDisplay" style="display:none;"></div>
+                <button class="timer-cancel" id="timerCancel" onclick="cancelTimer()" style="display:none;">✕</button>
+            </div>
+        </div>
+
+        <!-- 右侧：歌曲列表 -->
+        <div class="glass-panel playlist-sidebar">
+            <div class="playlist-header">
+                <span id="currentFolderName">All Songs <span id="playlistCount" style="color:#888; font-size:0.8rem">(0)</span></span>
+                <button class="upload-btn" id="importFilesBtn">+ Import</button>
+            </div>
+            <div class="playlist-content" id="playlistEl">
+                <div style="text-align:center; color: #666; margin-top: 20px; font-size: 0.85rem;">Add folder or import music</div>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- 键盘快捷键提示 -->
+    <div class="shortcuts-hint" title="Space:Play | ←/→:15s | A/B:Loop | P/N:Prev/Next | T:Timer | ↑/↓:Volume">⌨️ Shortcuts</div>
+
+    <script>
+        // --- Electron IPC (Node.js 环境检测) ---
+        const { ipcRenderer } = typeof require !== 'undefined' ? require('electron') : { ipcRenderer: null };
+        const isElectron = !!ipcRenderer;
+        
+        // --- 核心数据结构 ---
+        const audio = new Audio();
+        audio.crossOrigin = "anonymous";
+        
+        let playlist = []; // 存储文件对象 { file, path, name, folderId }
+        let allTracks = []; // 所有歌曲（用于切换文件夹时过滤）
+        let currentTrackIndex = -1;
+        let folders = []; // 文件夹列表
+        let currentFolderId = null; // 当前选中的文件夹ID (null表示所有歌曲, 'favorites'表示收藏)
+        
+        // 播放模式: 'list', 'single', 'random', 'preview'
+        let playMode = 'list';
+        const modes = ['list', 'single', 'random', 'preview'];
+        const modeIcons = ['fa-list', 'fa-redo', 'fa-random', 'fa-bolt'];
+        const modeTexts = ['List Loop', 'Single Loop', 'Shuffle', 'Taste Mode'];
+        
+        // 可视化模式
+        let visualizerMode = 'bars';
+        const visualizerModes = ['bars', 'wave', 'circle'];
+        const visualizerIcons = ['📊', '〰️', '🧿'];
+        const visualizerTexts = ['Spectrum', 'Wave', 'Radial'];
+
+        // 尝鲜模式变量
+        let previewTimeout = null;
+        const PREVIEW_DURATION = 20;
+        
+        // AB循环变量
+        let abLoop = { enabled: false, pointA: null, pointB: null };
+        
+        // 倒计时变量
+        let timerInterval = null;
+        let timerEndTime = null;
+
+        const els = {
+            playBtn: document.getElementById('playBtn'),
+            prevBtn: document.getElementById('prevBtn'),
+            nextBtn: document.getElementById('nextBtn'),
+            rewindBtn: document.getElementById('rewindBtn'),
+            forwardBtn: document.getElementById('forwardBtn'),
+            progressBar: document.getElementById('progressBar'),
+            currTime: document.getElementById('currentTime'),
+            durTime: document.getElementById('duration'),
+            title: document.getElementById('trackTitle'),
+            artist: document.getElementById('trackArtist'),
+            list: document.getElementById('playlistEl'),
+            count: document.getElementById('playlistCount'),
+            visualizerBtn: document.getElementById('visualizerBtn'),
+            visualizerText: document.getElementById('visualizerText'),
+            modeBtn: document.getElementById('modeBtn'),
+            modeIcon: document.getElementById('modeIcon'),
+            modeText: document.getElementById('modeText'),
+            favBtn: document.getElementById('favBtn'),
+            previewToast: document.getElementById('previewToast'),
+            volumeSlider: document.getElementById('volumeSlider'),
+            volumeIcon: document.getElementById('volumeIcon'),
+            volumePercent: document.getElementById('volumePercent'),
+            setABtn: document.getElementById('setABtn'),
+            setBBtn: document.getElementById('setBBtn'),
+            abIndicator: document.getElementById('abIndicator'),
+            abRange: document.getElementById('abRange'),
+            timerPanel: document.getElementById('timerPanel'),
+            timerIcon: document.getElementById('timerIcon'),
+            timerOptions: document.getElementById('timerOptions'),
+            timerDisplay: document.getElementById('timerDisplay'),
+            timerCancel: document.getElementById('timerCancel'),
+            addFolderBtn: document.getElementById('addFolderBtn'),
+            importFilesBtn: document.getElementById('importFilesBtn'),
+            folderList: document.getElementById('folderList'),
+            currentFolderName: document.getElementById('currentFolderName')
+        };
+
+        // --- 初始化 & 数据库操作 ---
+        async function getTrackData(name, path) {
+            if(!isElectron) return { plays: 0, loved: 0 };
+            const data = await ipcRenderer.invoke('db:getTrack', name);
+            return data;
+        }
+        
+        async function updatePlays(name, path) {
+            if(!isElectron) return;
+            await ipcRenderer.invoke('db:updatePlays', name, path);
+        }
+        
+        async function toggleLove(name, path) {
+            if(!isElectron) return false;
+            return await ipcRenderer.invoke('db:toggleLove', name, path);
+        }
+
+        // --- 可视化模式切换 ---
+        els.visualizerBtn.addEventListener('click', () => {
+            let idx = visualizerModes.indexOf(visualizerMode);
+            idx = (idx + 1) % visualizerModes.length;
+            visualizerMode = visualizerModes[idx];
+            
+            els.visualizerText.innerText = `${visualizerIcons[idx]} ${visualizerTexts[idx]}`;
+        });
+
+        // --- 播放模式切换 ---
+        els.modeBtn.addEventListener('click', () => {
+            let idx = modes.indexOf(playMode);
+            idx = (idx + 1) % modes.length;
+            playMode = modes[idx];
+            
+            els.modeIcon.className = `fas ${modeIcons[idx]}`;
+            els.modeText.innerText = modeTexts[idx];
+            
+            if(playMode === 'preview') {
+                els.previewToast.classList.add('show');
+                setTimeout(() => els.previewToast.classList.remove('show'), 2000);
+            }
+        });
+
+        // --- 播放核心逻辑 ---
+        async function loadTrack(index, autoPlay = true) {
+            if (index < 0 || index >= playlist.length) return;
+            currentTrackIndex = index;
+            
+            const item = playlist[index];
+            const name = item.name || item.file.name.replace(/\.[^/.]+$/, "");
+            const filePath = item.path || '';
+            
+            if(item.file) {
+                audio.src = URL.createObjectURL(item.file);
+            } else if(filePath && isElectron) {
+                audio.src = filePath;
+            }
+            
+            els.title.innerText = name;
+            
+            const trackData = await getTrackData(name, filePath);
+            els.artist.innerText = `Played ${trackData.plays || 0} times`;
+            
+            updateFavIcon(trackData.loved === 1 || trackData.loved === true);
+            renderPlaylist();
+            clearTimeout(previewTimeout);
+            resetABLoop();
+            
+            if (autoPlay) {
+                audio.play().then(async () => {
+                    initAudioContext();
+                    updatePlayIcon(true);
+                    
+                    await updatePlays(name, filePath);
+                    const newData = await getTrackData(name, filePath);
+                    els.artist.innerText = `Played ${newData.plays || 0} times`;
+
+                    if(playMode === 'preview') {
+                        handlePreviewMode(audio.duration);
+                    }
+                }).catch(console.error);
+            }
+        }
+        
+        function updatePlayIcon(isPlaying) {
+            els.playBtn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+        }
+
+        function handlePreviewMode(duration) {
+            if(isNaN(duration) || duration === Infinity) {
+                audio.onloadedmetadata = () => handlePreviewMode(audio.duration);
+                return;
+            }
+
+            const startPct = 0.2 + Math.random() * 0.4; 
+            const startTime = duration * startPct;
+            audio.currentTime = startTime;
+
+            els.previewToast.innerText = `✨ 尝鲜播放中 (Starting at ${formatTime(startTime)})`;
+            els.previewToast.classList.add('show');
+            setTimeout(() => els.previewToast.classList.remove('show'), 3000);
+
+            previewTimeout = setTimeout(() => {
+                playNext();
+            }, PREVIEW_DURATION * 1000);
+        }
+
+        function playNext() {
+            let nextIndex;
+            if (playMode === 'random') {
+                nextIndex = Math.floor(Math.random() * playlist.length);
+            } else if (playMode === 'single') {
+                nextIndex = currentTrackIndex;
+                audio.currentTime = 0;
+                audio.play();
+                return; 
+            } else {
+                nextIndex = (currentTrackIndex + 1) % playlist.length;
+            }
+            loadTrack(nextIndex, true);
+        }
+
+        function playPrev() {
+            let prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+            loadTrack(prevIndex, true);
+        }
+
+        audio.addEventListener('ended', playNext);
+
+        els.favBtn.addEventListener('click', async () => {
+            if(currentTrackIndex === -1) return;
+            const item = playlist[currentTrackIndex];
+            const name = item.name || item.file.name.replace(/\.[^/.]+$/, "");
+            const filePath = item.path || '';
+            const isLoved = await toggleLove(name, filePath);
+            updateFavIcon(isLoved);
+            renderPlaylist();
+            updateFolderCounts();
+        });
+
+        function updateFavIcon(isLoved) {
+            if(isLoved) {
+                els.favBtn.classList.add('active');
+                els.favBtn.innerHTML = '<i class="fas fa-heart" style="color: #ff4757;"></i>';
+            } else {
+                els.favBtn.classList.remove('active');
+                els.favBtn.innerHTML = '<i class="far fa-heart" style="color: #888;"></i>';
+            }
+        }
+
+        // --- 播放列表渲染 ---
+        async function addFiles(files, folderId = null) {
+            for (let file of files) {
+                if (file.type && file.type.startsWith('audio/')) {
+                    const track = { 
+                        file, 
+                        path: '', 
+                        name: file.name.replace(/\.[^/.]+$/, ""),
+                        folderId: folderId
+                    };
+                    allTracks.push(track);
+                } else if(file.path) {
+                    const name = file.name || file.path.split(/[\\/]/).pop().replace(/\.[^/.]+$/, "");
+                    const track = {
+                        file: null, 
+                        path: file.path, 
+                        name,
+                        folderId: folderId
+                    };
+                    allTracks.push(track);
+                    
+                    if(isElectron) {
+                        await ipcRenderer.invoke('db:saveTrack', name, file.path, folderId);
+                    }
+                }
+            }
+            
+            await filterPlaylistByFolder(currentFolderId);
+            if (currentTrackIndex === -1 && playlist.length > 0) loadTrack(0, false);
+            
+            // 更新文件夹计数
+            await updateFolderCounts();
+        }
+        
+        async function filterPlaylistByFolder(folderId) {
+            currentFolderId = folderId;
+            
+            if(folderId === null) {
+                playlist = [...allTracks];
+                els.currentFolderName.innerHTML = 'All Songs <span id="playlistCount" style="color:#888; font-size:0.8rem">(0)</span>';
+            } else if(folderId === 'favorites') {
+                playlist = [];
+                for(let track of allTracks) {
+                    const data = await getTrackData(track.name, track.path);
+                    if(data.loved === 1 || data.loved === true) {
+                        playlist.push(track);
+                    }
+                }
+                els.currentFolderName.innerHTML = '❤️ Favorites <span id="playlistCount" style="color:#888; font-size:0.8rem">(0)</span>';
+            } else {
+                playlist = allTracks.filter(t => t.folderId === folderId);
+                const folder = folders.find(f => f.id === folderId);
+                const folderName = folder ? folder.name : 'Folder';
+                els.currentFolderName.innerHTML = `📂 ${folderName} <span id="playlistCount" style="color:#888; font-size:0.8rem">(0)</span>`;
+            }
+            
+            currentTrackIndex = -1;
+            await renderPlaylist();
+            
+            // 更新左侧文件夹计数
+            await updateFolderCounts();
+        }
+
+        async function renderPlaylist() {
+            els.list.innerHTML = '';
+            els.count.innerText = `(${playlist.length})`;
+            
+            for(let index = 0; index < playlist.length; index++) {
+                const item = playlist[index];
+                const name = item.name;
+                const data = await getTrackData(name, item.path);
+                
+                const div = document.createElement('div');
+                div.className = `track-item ${index === currentTrackIndex ? 'active' : ''} ${(data.loved === 1 || data.loved === true) ? 'fav' : ''}`;
+                div.onclick = (e) => { if(!e.target.closest('.action-btn')) loadTrack(index, true); };
+                
+                div.innerHTML = `
+                    <div class="track-meta">
+                        <div class="track-name">${name}</div>
+                        <div class="track-stats">
+                            <span class="stat-play"><i class="fas fa-play" style="font-size:0.6rem"></i> ${data.plays || 0}</span>
+                            <span class="stat-fav">${(data.loved === 1 || data.loved === true) ? '<i class="fas fa-heart"></i>' : '<i class="far fa-heart"></i>'}</span>
+                        </div>
+                    </div>
+                    <button class="action-btn" onclick="removeTrack(${index}, event)"><i class="fas fa-trash-alt"></i></button>
+                `;
+                els.list.appendChild(div);
+            }
+        }
+        
+        window.removeTrack = function(index, e) {
+            e.stopPropagation();
+            const track = playlist[index];
+            
+            const globalIndex = allTracks.findIndex(t => t.name === track.name && t.path === track.path);
+            if(globalIndex !== -1) {
+                allTracks.splice(globalIndex, 1);
+            }
+            
+            playlist.splice(index, 1);
+            
+            if(index === currentTrackIndex) { 
+                audio.pause(); 
+                currentTrackIndex = -1; 
+            } else if(index < currentTrackIndex) {
+                currentTrackIndex--;
+            }
+            
+            renderPlaylist();
+            updateFolderCounts();
+        }
+
+        // --- 音量控制 ---
+        els.volumeSlider.addEventListener('input', (e) => {
+            const vol = e.target.value / 100;
+            audio.volume = vol;
+            els.volumePercent.innerText = e.target.value + '%';
+            updateVolumeIcon(vol);
+        });
+        
+        els.volumeIcon.addEventListener('click', () => {
+            if(audio.volume > 0) {
+                audio.volume = 0;
+                els.volumeSlider.value = 0;
+                els.volumePercent.innerText = '0%';
+            } else {
+                audio.volume = 1;
+                els.volumeSlider.value = 100;
+                els.volumePercent.innerText = '100%';
+            }
+            updateVolumeIcon(audio.volume);
+        });
+        
+        function updateVolumeIcon(vol) {
+            if(vol === 0) els.volumeIcon.className = 'fas fa-volume-mute volume-icon';
+            else if(vol < 0.5) els.volumeIcon.className = 'fas fa-volume-down volume-icon';
+            else els.volumeIcon.className = 'fas fa-volume-up volume-icon';
+        }
+        
+        // --- AB循环 ---
+        els.setABtn.addEventListener('click', () => {
+            abLoop.pointA = audio.currentTime;
+            els.setABtn.classList.add('active');
+            updateABIndicator();
+            if(abLoop.pointB !== null && abLoop.pointA < abLoop.pointB) {
+                abLoop.enabled = true;
+            }
+        });
+        
+        els.setBBtn.addEventListener('click', () => {
+            abLoop.pointB = audio.currentTime;
+            els.setBBtn.classList.add('active');
+            updateABIndicator();
+            if(abLoop.pointA !== null && abLoop.pointA < abLoop.pointB) {
+                abLoop.enabled = true;
+            }
+        });
+        
+        function updateABIndicator() {
+            if(abLoop.pointA !== null || abLoop.pointB !== null) {
+                const aText = abLoop.pointA !== null ? formatTime(abLoop.pointA) : '--';
+                const bText = abLoop.pointB !== null ? formatTime(abLoop.pointB) : '--';
+                els.abRange.innerText = `${aText} ~ ${bText}`;
+                els.abIndicator.classList.add('show');
+            } else {
+                els.abIndicator.classList.remove('show');
+            }
+        }
+        
+        function resetABLoop() {
+            abLoop = { enabled: false, pointA: null, pointB: null };
+            els.setABtn.classList.remove('active');
+            els.setBBtn.classList.remove('active');
+            els.abIndicator.classList.remove('show');
+        }
+        
+        audio.addEventListener('timeupdate', () => {
+            if(abLoop.enabled && abLoop.pointB !== null && audio.currentTime >= abLoop.pointB) {
+                audio.currentTime = abLoop.pointA || 0;
+            }
+        });
+        
+        // --- 15秒前进/后退 ---
+        els.rewindBtn.addEventListener('click', () => {
+            audio.currentTime = Math.max(0, audio.currentTime - 15);
+        });
+        
+        els.forwardBtn.addEventListener('click', () => {
+            audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+        });
+        
+        // --- 倒计时停止 ---
+        let isDraggingTimer = false;
+        let timerDragOffset = { x: 0, y: 0 };
+        
+        // 恢复倒计时面板位置
+        async function restoreTimerPosition() {
+            if(!isElectron) return;
+            const position = await ipcRenderer.invoke('db:getSetting', 'timerPanelPosition');
+            if(position) {
+                try {
+                    const pos = JSON.parse(position);
+                    if(pos.left !== undefined && pos.top !== undefined) {
+                        els.timerPanel.style.left = pos.left + 'px';
+                        els.timerPanel.style.top = pos.top + 'px';
+                        els.timerPanel.style.bottom = 'auto';
+                    }
+                } catch(e) {
+                    console.error('Failed to restore timer position:', e);
+                }
+            }
+        }
+        
+        // 保存倒计时面板位置
+        async function saveTimerPosition() {
+            if(!isElectron) return;
+            const position = {
+                left: parseInt(els.timerPanel.style.left) || 30,
+                top: parseInt(els.timerPanel.style.top) || null
+            };
+            if(position.top === null) {
+                const playerMain = document.querySelector('.player-main');
+                const playerRect = playerMain.getBoundingClientRect();
+                const panelRect = els.timerPanel.getBoundingClientRect();
+                position.top = playerRect.height - panelRect.height - 80;
+            }
+            await ipcRenderer.invoke('db:saveSetting', 'timerPanelPosition', JSON.stringify(position));
+        }
+        
+        els.timerPanel.addEventListener('mousedown', (e) => {
+            // 如果点击的是按钮，不启动拖动
+            if(e.target.closest('.timer-btn, .timer-icon, .timer-cancel')) {
+                return;
+            }
+            
+            isDraggingTimer = true;
+            const rect = els.timerPanel.getBoundingClientRect();
+            timerDragOffset.x = e.clientX - rect.left;
+            timerDragOffset.y = e.clientY - rect.top;
+            
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if(!isDraggingTimer) return;
+            
+            const playerMain = document.querySelector('.player-main');
+            const playerRect = playerMain.getBoundingClientRect();
+            
+            let x = e.clientX - playerRect.left - timerDragOffset.x;
+            let y = e.clientY - playerRect.top - timerDragOffset.y;
+            
+            // 限制在播放器区域内
+            const panelRect = els.timerPanel.getBoundingClientRect();
+            x = Math.max(0, Math.min(x, playerRect.width - panelRect.width));
+            y = Math.max(0, Math.min(y, playerRect.height - panelRect.height));
+            
+            els.timerPanel.style.left = x + 'px';
+            els.timerPanel.style.top = y + 'px';
+            els.timerPanel.style.bottom = 'auto';
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if(isDraggingTimer) {
+                saveTimerPosition();
+            }
+            isDraggingTimer = false;
+        });
+        
+        els.timerIcon.addEventListener('click', () => {
+            const isShowing = els.timerOptions.classList.contains('show');
+            if(isShowing) {
+                els.timerOptions.classList.remove('show');
+            } else {
+                els.timerOptions.classList.add('show');
+            }
+        });
+        
+        window.setTimer = function(minutes) {
+            cancelTimer();
+            timerEndTime = Date.now() + minutes * 60 * 1000;
+            
+            document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // 隐藏选项，显示倒计时和取消按钮
+            els.timerOptions.classList.remove('show');
+            els.timerDisplay.style.display = 'block';
+            els.timerCancel.style.display = 'block';
+            
+            timerInterval = setInterval(() => {
+                const remaining = timerEndTime - Date.now();
+                if(remaining <= 0) {
+                    audio.pause();
+                    cancelTimer();
+                    showToast('⏰ 倒计时结束，已暂停');
+                } else {
+                    const mins = Math.floor(remaining / 60000);
+                    const secs = Math.floor((remaining % 60000) / 1000);
+                    els.timerDisplay.innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+        
+        window.cancelTimer = function() {
+            if(timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                timerEndTime = null;
+                els.timerDisplay.innerText = '';
+                els.timerDisplay.style.display = 'none';
+                els.timerCancel.style.display = 'none';
+                els.timerOptions.classList.remove('show');
+                document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
+            }
+        }
+        
+        // 自定义倒计时
+        window.showCustomTimer = function() {
+            const minutes = prompt('请输入自定义倒计时分钟数（1-999）:', '90');
+            if(minutes === null) return;
+            
+            const mins = parseInt(minutes);
+            if(isNaN(mins) || mins < 1 || mins > 999) {
+                alert('请输入有效的分钟数（1-999）');
+                return;
+            }
+            
+            setTimer(mins);
+        }
+        
+        function showToast(message) {
+            els.previewToast.innerText = message;
+            els.previewToast.classList.add('show');
+            setTimeout(() => els.previewToast.classList.remove('show'), 2500);
+        }
+
+        // --- 可视化 & 基础控制 ---
+        let audioCtx, analyser, dataArray, canvas = document.getElementById("visualizer"), ctx = canvas.getContext("2d");
+        function initAudioContext() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+            let src = audioCtx.createMediaElementSource(audio); src.connect(analyser); analyser.connect(audioCtx.destination);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            draw();
+        }
+        function draw() {
+            requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            let w = canvas.width/dataArray.length*2.5, x=0;
+            for(let i=0; i<dataArray.length; i++) {
+                let h = dataArray[i]/2;
+                ctx.fillStyle = '#00ff88';
+                if(visualizerMode === 'wave') ctx.fillRect(x, canvas.height/2 - h/2, w, h);
+                else if(visualizerMode === 'circle') {
+                    // 径向效果
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const radius = 30 + h;
+                    const angle = (i / dataArray.length) * Math.PI * 2;
+                    const x1 = centerX + Math.cos(angle) * 30;
+                    const y1 = centerY + Math.sin(angle) * 30;
+                    const x2 = centerX + Math.cos(angle) * radius;
+                    const y2 = centerY + Math.sin(angle) * radius;
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.strokeStyle = '#00ff88';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else {
+                    // bars
+                    ctx.fillRect(x, canvas.height-h, w, h);
+                }
+                x+=w+1;
+            }
+        }
+
+        els.playBtn.onclick = () => audio.paused ? audio.play().then(()=>initAudioContext()) : audio.pause();
+        audio.onplay = () => els.playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        audio.onpause = () => els.playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        els.nextBtn.onclick = playNext; 
+        els.prevBtn.onclick = playPrev;
+        
+        audio.ontimeupdate = () => {
+            if(document.activeElement !== els.progressBar) els.progressBar.value = audio.currentTime;
+            els.progressBar.max = audio.duration || 0;
+            els.currTime.innerText = formatTime(audio.currentTime);
+            els.durTime.innerText = formatTime(audio.duration||0);
+        };
+        els.progressBar.oninput = (e) => audio.currentTime = e.target.value;
+        
+        const formatTime = s => `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+        
+        // --- 键盘控制 ---
+        document.addEventListener('keydown', (e) => {
+            if(e.target.tagName === 'INPUT') return;
+            
+            switch(e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    els.playBtn.click();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    els.rewindBtn.click();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    els.forwardBtn.click();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    els.volumeSlider.value = Math.min(100, parseInt(els.volumeSlider.value) + 5);
+                    els.volumeSlider.dispatchEvent(new Event('input'));
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    els.volumeSlider.value = Math.max(0, parseInt(els.volumeSlider.value) - 5);
+                    els.volumeSlider.dispatchEvent(new Event('input'));
+                    break;
+                case 'KeyA':
+                    e.preventDefault();
+                    els.setABtn.click();
+                    break;
+                case 'KeyB':
+                    e.preventDefault();
+                    els.setBBtn.click();
+                    break;
+                case 'KeyP':
+                    e.preventDefault();
+                    els.prevBtn.click();
+                    break;
+                case 'KeyN':
+                    e.preventDefault();
+                    els.nextBtn.click();
+                    break;
+                case 'KeyT':
+                    e.preventDefault();
+                    els.timerIcon.click();
+                    break;
+                case 'KeyM':
+                    e.preventDefault();
+                    els.volumeIcon.click();
+                    break;
+            }
+        });
+
+        // --- 文件夹管理 ---
+        els.addFolderBtn.addEventListener('click', async () => {
+            if(!isElectron) {
+                alert('文件夹功能仅在 Electron 桌b面应用中可用');
+                return;
+            }
+            
+            const folderPath = await ipcRenderer.invoke('dialog:openFolder');
+            if(folderPath) {
+                showToast('🔍 正在扫描文件夹...');
+                
+                const result = await ipcRenderer.invoke('db:addFolder', folderPath);
+                if(result.success) {
+                    await loadFolders();
+                    
+                    const musicFiles = await ipcRenderer.invoke('folder:scanMusic', folderPath);
+                    
+                    if(musicFiles && musicFiles.length > 0) {
+                        showToast(`🎵 找到 ${musicFiles.length} 首歌曲，正在导入...`);
+                        
+                        const newFolder = folders.find(f => f.path === folderPath);
+                        const folderId = newFolder ? newFolder.id : null;
+                        
+                        await addFiles(musicFiles, folderId);
+                        
+                        if(folderId) {
+                            await filterPlaylistByFolder(folderId);
+                        }
+                        
+                        showToast(`✅ 成功导入 ${musicFiles.length} 首歌曲`);
+                    } else {
+                        showToast('⚠️ 文件夹中没有找到音乐文件');
+                    }
+                } else {
+                    showToast('❌ 添加文件夹失败');
+                }
+            }
+        });
+        
+        els.importFilesBtn.addEventListener('click', async () => {
+            if(!isElectron) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'audio/*';
+                input.multiple = true;
+                input.onchange = async (e) => {
+                    if(e.target.files && e.target.files.length > 0) {
+                        await addFiles(Array.from(e.target.files), currentFolderId);
+                        showToast(`✅ 已导入 ${e.target.files.length} 首歌曲`);
+                    }
+                };
+                input.click();
+            } else {
+                const filePaths = await ipcRenderer.invoke('dialog:openFiles');
+                if(filePaths && filePaths.length > 0) {
+                    showToast(`🎵 正在导入 ${filePaths.length} 首歌曲...`);
+                    const files = filePaths.map(p => ({ 
+                        path: p, 
+                        name: p.split(/[\\/]/).pop().replace(/\.[^/.]+$/, '')
+                    }));
+                    await addFiles(files, currentFolderId);
+                    showToast(`✅ 成功导入 ${files.length} 首歌曲`);
+                }
+            }
+        });
+        
+        async function loadFolders() {
+            if(!isElectron) return;
+            folders = await ipcRenderer.invoke('db:getFolders');
+            await renderFolders();
+        }
+        
+        async function renderFolders() {
+            els.folderList.innerHTML = '';
+            
+            const allItem = document.createElement('div');
+            allItem.className = `folder-item ${currentFolderId === null ? 'active' : ''}`;
+            allItem.innerHTML = `
+                <i class="fas fa-music folder-icon" style="color:var(--accent);"></i>
+                <span class="folder-name">All Songs</span>
+                <span class="folder-count" id="allSongsCount">0</span>
+            `;
+            allItem.onclick = () => filterPlaylistByFolder(null);
+            els.folderList.appendChild(allItem);
+            
+            const favItem = document.createElement('div');
+            favItem.className = `folder-item ${currentFolderId === 'favorites' ? 'active' : ''}`;
+            favItem.innerHTML = `
+                <i class="fas fa-heart folder-icon" style="color:var(--danger);"></i>
+                <span class="folder-name">Favorites</span>
+                <span class="folder-count" id="favoritesCount">0</span>
+            `;
+            favItem.onclick = () => filterPlaylistByFolder('favorites');
+            els.folderList.appendChild(favItem);
+            
+            if(folders.length > 0) {
+                const divider = document.createElement('div');
+                divider.style.cssText = 'height:1px; background:rgba(255,255,255,0.1); margin:10px 0;';
+                els.folderList.appendChild(divider);
+            }
+            
+            folders.forEach(folder => {
+                const div = document.createElement('div');
+                div.className = `folder-item ${currentFolderId === folder.id ? 'active' : ''}`;
+                div.innerHTML = `
+                    <i class="fas fa-folder folder-icon" style="color:#ffa500;"></i>
+                    <span class="folder-name">${folder.name}</span>
+                    <span class="folder-count" id="folder-${folder.id}-count">0</span>
+                    <button class="folder-delete" onclick="deleteFolder(${folder.id}, event)" title="删除文件夹">✕</button>
+                `;
+                div.onclick = (e) => {
+                    if(!e.target.closest('.folder-delete')) {
+                        filterPlaylistByFolder(folder.id);
+                    }
+                };
+                els.folderList.appendChild(div);
+            });
+            
+            // 立即更新计数
+            await updateFolderCounts();
+        }
+        
+        async function updateFolderCounts() {
+            const allCount = document.getElementById('allSongsCount');
+            if(allCount) allCount.innerText = allTracks.length;
+            
+            let favCount = 0;
+            for(let track of allTracks) {
+                const data = await getTrackData(track.name, track.path);
+                if(data.loved === 1 || data.loved === true) favCount++;
+            }
+            const favEl = document.getElementById('favoritesCount');
+            if(favEl) favEl.innerText = favCount;
+            
+            folders.forEach(folder => {
+                const count = allTracks.filter(t => t.folderId === folder.id).length;
+                const el = document.getElementById(`folder-${folder.id}-count`);
+                if(el) el.innerText = count;
+            });
+        }
+        
+        // 删除文件夹
+        window.deleteFolder = async function(folderId, e) {
+            e.stopPropagation();
+            
+            const folder = folders.find(f => f.id === folderId);
+            if(!folder) return;
+            
+            if(!confirm(`确定要删除文件夹 "${folder.name}" 及其中的所有歌曲吗？`)) return;
+            
+            const result = await ipcRenderer.invoke('db:deleteFolder', folderId);
+            if(result.success) {
+                // 从 allTracks 中移除对应的歌曲
+                allTracks = allTracks.filter(t => t.folderId !== folderId);
+                
+                // 如果当前在该文件夹，切换到所有歌曲
+                if(currentFolderId === folderId) {
+                    await filterPlaylistByFolder(null);
+                }
+                
+                // 重新加载文件夹列表
+                await loadFolders();
+                
+                showToast('✅ 文件夹已删除');
+            } else {
+                showToast('❌ 删除失败：' + result.error);
+            }
+        }
+        
+        async function initApp() {
+            if(isElectron) {
+                await loadFolders();
+                const savedTracks = await ipcRenderer.invoke('db:getAllTracks');
+                if(savedTracks && savedTracks.length > 0) {
+                    for(let track of savedTracks) {
+                        allTracks.push({
+                            file: null,
+                            path: track.path,
+                            name: track.name,
+                            folderId: track.folder_id
+                        });
+                    }
+                    await filterPlaylistByFolder(null);
+                    // 初始化后更新文件夹计数
+                    await updateFolderCounts();
+                    
+                    // 恢复最后的播放状态
+                    await restorePlayState();
+                }
+                
+                // 恢复倒计时面板位置
+                await restoreTimerPosition();
+                
+                // 监听保存播放状态事件
+                ipcRenderer.on('save-play-state', () => {
+                    savePlayState();
+                });
+                
+                // 监听菜单触发的事件
+                ipcRenderer.on('trigger-add-folder', () => {
+                    els.addFolderBtn.click();
+                });
+                
+                ipcRenderer.on('trigger-import-files', () => {
+                    els.importFilesBtn.click();
+                });
+                
+                ipcRenderer.on('trigger-play-pause', () => {
+                    els.playBtn.click();
+                });
+                
+                ipcRenderer.on('trigger-prev', () => {
+                    els.prevBtn.click();
+                });
+                
+                ipcRenderer.on('trigger-next', () => {
+                    els.nextBtn.click();
+                });
+                
+                ipcRenderer.on('trigger-rewind', () => {
+                    els.rewindBtn.click();
+                });
+                
+                ipcRenderer.on('trigger-forward', () => {
+                    els.forwardBtn.click();
+                });
+            }
+        }
+        
+        // 保存播放状态
+        async function savePlayState() {
+            if(!isElectron || currentTrackIndex === -1) return;
+            
+            const currentTrack = playlist[currentTrackIndex];
+            if(!currentTrack) return;
+            
+            const playState = {
+                trackName: currentTrack.name,
+                trackPath: currentTrack.path,
+                currentTime: audio.currentTime,
+                isPlaying: !audio.paused,
+                volume: audio.volume,
+                folderId: currentFolderId
+            };
+            
+            await ipcRenderer.invoke('db:savePlayState', playState);
+        }
+        
+        // 恢复播放状态
+        async function restorePlayState() {
+            if(!isElectron) return;
+            
+            const playState = await ipcRenderer.invoke('db:getPlayState');
+            if(!playState) return;
+            
+            // 恢复音量
+            if(playState.volume !== undefined) {
+                audio.volume = playState.volume;
+                els.volumeSlider.value = playState.volume * 100;
+                els.volumePercent.innerText = Math.round(playState.volume * 100) + '%';
+                updateVolumeIcon(playState.volume);
+            }
+            
+            // 查找对应的歌曲
+            const trackIndex = playlist.findIndex(t => 
+                t.name === playState.trackName && t.path === playState.trackPath
+            );
+            
+            if(trackIndex !== -1) {
+                // 切换到对应的文件夹（如果需要）
+                if(playState.folderId !== currentFolderId) {
+                    await filterPlaylistByFolder(playState.folderId);
+                }
+                
+                // 重新查找索引（因为可能切换了文件夹）
+                const newIndex = playlist.findIndex(t => 
+                    t.name === playState.trackName && t.path === playState.trackPath
+                );
+                
+                if(newIndex !== -1) {
+                    // 加载歌曲但不自动播放
+                    await loadTrack(newIndex, false);
+                    
+                    // 恢复播放位置
+                    audio.addEventListener('loadedmetadata', () => {
+                        if(playState.currentTime) {
+                            audio.currentTime = playState.currentTime;
+                        }
+                        
+                        // 如果之前是播放状态，自动开始播放
+                        if(playState.isPlaying) {
+                            audio.play().then(() => {
+                                initAudioContext();
+                                updatePlayIcon(true);
+                            }).catch(err => {
+                                console.log('自动播放被阻止，需要用户交互', err);
+                            });
+                        }
+                    }, { once: true });
+                }
+            }
+        }
+        
+        initApp();
+    </script>
+</body>
+</html>
