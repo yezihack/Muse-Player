@@ -108,6 +108,13 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
@@ -129,6 +136,62 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          name: Muse Player v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## 🎵 Muse Player v${{ steps.get_version.outputs.VERSION }}
+            
+            一个简洁优雅的桌面音乐播放器，基于 Electron + SQLite 构建。
+            
+            ### ✨ 功能特性
+            
+            - 🎵 **多格式支持**: MP3, WAV, OGG, FLAC, M4A, AAC 等
+            - 📊 **音频可视化**: 频谱、波形、径向三种效果
+            - 🔊 **音量控制**: 滑动条调节 + 一键静音
+            - 🔁 **AB循环**: 设置A/B点循环播放指定区间
+            - ⏱️ **倒计时**: 10/20/30/45/60分钟自动停止
+            - 📂 **文件夹管理**: 支持多文件夹分类管理
+            - ❤️ **收藏功能**: 标记喜欢的歌曲
+            - ⌨️ **快捷键**: 完整的键盘快捷键支持
+            - 💾 **状态保存**: 自动记忆播放位置和音量
+            - 🎮 **多模式**: 列表循环、单曲循环、随机、尝鲜模式
+            
+            ### 💾 下载说明
+            
+            **Windows:**
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.exe` - NSIS 安装包（推荐）
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-portable.exe` - 绿色免安装版
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.zip` - ZIP 压缩包
+            
+            **macOS:**
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.dmg` - Intel 芯片
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-arm64.dmg` - Apple Silicon (M1/M2/M3)
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.zip` - Intel 芯片 ZIP
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-arm64.zip` - Apple Silicon ZIP
+            
+            **Linux:**
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.AppImage` - 通用格式（推荐）
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.deb` - Debian/Ubuntu
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.rpm` - Fedora/RedHat
+            - `Muse-Player-${{ steps.get_version.outputs.VERSION }}-x64.tar.gz` - 通用压缩包
+            
+            ### ⌨️ 快捷键
+            
+            | 快捷键 | 功能 |
+            |--------|------|
+            | `Space` | 播放/暂停 |
+            | `←/→` | 后退/前进 15秒 |
+            | `↑/↓` | 音量 +5% / -5% |
+            | `P/N` | 上一曲/下一曲 |
+            | `A/B` | 设置 AB 循环点 |
+            | `T` | 打开倒计时 |
+            | `M` | 静音/取消静音 |
+            | `Ctrl+O` | 添加文件夹 |
+            | `Ctrl+I` | 导入音乐 |
+            
+            ---
+            
+            🐛 **问题反馈**: [Issues](https://github.com/${{ github.repository }}/issues)
+            📝 **许可证**: MIT License
           files: |
             artifacts/windows/*
             artifacts/macos/*
