@@ -12,7 +12,8 @@
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux",
-    "dist:portable": "electron-builder --win portable"
+    "dist:portable": "electron-builder --win portable",
+    "build-icons": "electron-icon-maker --input=./source-icon.png --output=./"
   },
   "keywords": ["music", "player", "electron", "sqlite"],
   "author": "",

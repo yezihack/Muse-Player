@@ -144,3 +144,35 @@ npm start
 ```bash
 npm run dev
 ```
+
+## git workflow
+
+```sh
+# 1. 删除本地标签
+git tag -d v1.0.0
+
+# 2. 删除远程标签
+git push origin :refs/tags/v1.0.0
+
+# 3. 重新创建标签
+git tag v1.0.0
+
+# 4. 推送新标签
+git push origin v1.0.0
+```
+
+## 自动生成图标
+
+```sh
+# 1. 安装依赖
+npm install --save-dev electron-icon-maker
+
+# 2. 在 package.json 添加脚本
+"scripts": {
+  "build-icons": "electron-icon-maker --input=./source-icon.png --output=./"
+}
+
+# 3. 准备一个 1024x1024 的源图标 source-icon.png
+# 4. 运行
+npm run build-icons
+```
